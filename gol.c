@@ -13,8 +13,11 @@
  *
  */
 
+// #include <cstdio.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <semaphore.h>
+
 
 #include "gol.h"
 
@@ -72,51 +75,77 @@ void *play_round(void *arg) {
     stats_t *stats = (stats_t *) malloc(sizeof(stats_t));
     stats->borns = stats->loneliness = stats->overcrowding = stats->survivals = 0;
     
-    for (int i = begin; i < end; ++i) {
-        for (int j = 0; j < size; j++) {
-            
-            int a = adjacent_to(board, size, i, j);
+    for (int s = 0; s < arguments->steps; ++s) {
+        // unsigned long id = pthread_self();
+        // printf("thread %ld esperando semaforo\n", id);
+        sem_wait(arguments->semaphore);
+        // printf("thread %ld passou semaforo\n", id);
+        for (int i = begin; i < end; ++i) {
+            for (int j = 0; j < size; j++) {
+                
+                int a = adjacent_to(board, size, i, j);
 
-            /* if cell is alive */
-            if(board[i][j]) 
-            {
-                /* death: loneliness */
-                if(a < 2) {
-                    newboard[i][j] = 0;
-                    stats->loneliness++;
-                }
-                else
+                /* if cell is alive */
+                if(board[i][j]) 
                 {
-                    /* survival */
-                    if(a == 2 || a == 3)
-                    {
-                        newboard[i][j] = board[i][j];
-                        stats->survivals++;
+                    /* death: loneliness */
+                    if(a < 2) {
+                        newboard[i][j] = 0;
+                        stats->loneliness++;
                     }
                     else
                     {
-                        /* death: overcrowding */
-                        if(a > 3)
+                        /* survival */
+                        if(a == 2 || a == 3)
                         {
-                            newboard[i][j] = 0;
-                            stats->overcrowding++;
+                            newboard[i][j] = board[i][j];
+                            stats->survivals++;
+                        }
+                        else
+                        {
+                            /* death: overcrowding */
+                            if(a > 3)
+                            {
+                                newboard[i][j] = 0;
+                                stats->overcrowding++;
+                            }
                         }
                     }
+                    
                 }
-                
-            }
-            else /* if cell is dead */
-            {
-                if(a == 3) /* new born */
+                else /* if cell is dead */
                 {
-                    newboard[i][j] = 1;
-                    stats->borns++;
+                    if(a == 3) /* new born */
+                    {
+                        newboard[i][j] = 1;
+                        stats->borns++;
+                    }
+                    else /* stay unchanged */
+                        newboard[i][j] = board[i][j];
                 }
-                else /* stay unchanged */
-                    newboard[i][j] = board[i][j];
             }
         }
+        
+        cell_t **tmp = newboard;
+        newboard = board;
+        board = tmp;
+
+        unsigned int *finished;
+        sem_wait(arguments->threads_finished_lock);
+        finished = arguments->threads_finished;
+        *finished += 1;
+        // printf("Finished: %d\n", *finished);
+        // fflush(stdout);
+
+        if ( *finished == arguments->n_threads ) {
+            sem_post(arguments->sem_round_finished);
+
+            *finished = 0;
+        }
+        sem_post(arguments->threads_finished_lock);
+
     }
+
     pthread_exit(stats);
 }
 

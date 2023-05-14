@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <semaphore.h>
 
 /*
  * The Game of Life
@@ -28,8 +29,14 @@ typedef struct {
     unsigned int begin;
     unsigned int end;
     unsigned int size;
+    unsigned int steps;
+    unsigned int n_threads;
+    unsigned int *threads_finished;
     cell_t **curr;
     cell_t **next;
+    sem_t *semaphore; // Semaforo que sincroniza cada step
+    sem_t *sem_round_finished;  // Semaforo que sincroniza quando todas terminam
+    sem_t *threads_finished_lock; // Semaforo que sincroniza a condicao de corrida de threads_finished;
 } thread_arguments;
 
 /* Allocate a GoL board of size = size^2 */
