@@ -13,7 +13,9 @@
  *
  */
 
+#include <pthread.h>
 #include <stdlib.h>
+
 #include "gol.h"
 
 /* Statistics */
@@ -59,18 +61,21 @@ int adjacent_to(cell_t **board, int size, int i, int j)
     return count;
 }
 
-stats_t play(cell_t **board, cell_t **newboard, int size)
-{
-    int i, j, a;
-
-    stats_t stats = {0, 0, 0, 0};
-
-    /* for each cell, apply the rules of Life */
-    for (i = 0; i < size; i++)
-    {
-        for (j = 0; j < size; j++)
-        {
-            a = adjacent_to(board, size, i, j);
+void *play_round(void *arg) {
+    thread_arguments *arguments = (thread_arguments *) arg;
+    cell_t **board = arguments->curr;
+    cell_t **newboard = arguments->next;
+    int size = arguments->size;
+    int begin = arguments->begin;
+    int end = arguments->end;
+    
+    stats_t *stats = (stats_t *) malloc(sizeof(stats_t));
+    stats->borns = stats->loneliness = stats->overcrowding = stats->survivals = 0;
+    
+    for (int i = begin; i < end; ++i) {
+        for (int j = 0; j < size; j++) {
+            
+            int a = adjacent_to(board, size, i, j);
 
             /* if cell is alive */
             if(board[i][j]) 
@@ -78,7 +83,7 @@ stats_t play(cell_t **board, cell_t **newboard, int size)
                 /* death: loneliness */
                 if(a < 2) {
                     newboard[i][j] = 0;
-                    stats.loneliness++;
+                    stats->loneliness++;
                 }
                 else
                 {
@@ -86,7 +91,7 @@ stats_t play(cell_t **board, cell_t **newboard, int size)
                     if(a == 2 || a == 3)
                     {
                         newboard[i][j] = board[i][j];
-                        stats.survivals++;
+                        stats->survivals++;
                     }
                     else
                     {
@@ -94,7 +99,7 @@ stats_t play(cell_t **board, cell_t **newboard, int size)
                         if(a > 3)
                         {
                             newboard[i][j] = 0;
-                            stats.overcrowding++;
+                            stats->overcrowding++;
                         }
                     }
                 }
@@ -105,15 +110,14 @@ stats_t play(cell_t **board, cell_t **newboard, int size)
                 if(a == 3) /* new born */
                 {
                     newboard[i][j] = 1;
-                    stats.borns++;
+                    stats->borns++;
                 }
                 else /* stay unchanged */
                     newboard[i][j] = board[i][j];
             }
         }
     }
-
-    return stats;
+    pthread_exit(stats);
 }
 
 void print_board(cell_t **board, int size)
