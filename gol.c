@@ -64,6 +64,16 @@ int adjacent_to(cell_t **board, int size, int i, int j)
     return count;
 }
 
+/*
+ * - Incrementa o número de threads finalizadas.
+ * Caso tal número seja igual à quantidade de threads existentes,
+ * realiza um post no semáforo sem_round_finished para sinalizar à thread
+ * principal que o round atual acabou.
+ * 
+ * - O mutex threads_finished_lock garante a exclusão mútua
+ * em relação ao uso do ponteiro threads_finished, o qual aponta
+ * para um número inteiro compartilhado entre todas as threads.
+ */
 void finish_thread_round(thread_arguments* arguments) {
     sem_wait(arguments->threads_finished_lock);
 
@@ -94,8 +104,10 @@ void *play_round(void *arg) {
     stats->borns = stats->loneliness = stats->overcrowding = stats->survivals = 0;
     
     for (int s = 0; s < arguments->steps; ++s) {
+        // Espera a sinalização do começo de um novo round
+        // pela thread principal. Quando isso acontece, o semáforo
+        // de cada thread é incrementado uma vez
         sem_wait(arguments->semaphore);
-
         for (int i = begin; i < end; ++i) {
             for (int j = 0; j < size; j++) {
                 
@@ -142,6 +154,7 @@ void *play_round(void *arg) {
             }
         }
         
+        // faz a troca dos tabuleiros
         cell_t **tmp = newboard;
         newboard = board;
         board = tmp;
