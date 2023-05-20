@@ -65,9 +65,14 @@ int main(int argc, char **argv)
     
     unsigned int thread_size = size / n_threads;
     unsigned int threads_finished = 0;
-    for (int i = 0; i < n_threads - 1; i++){
-        threads_arg[i].begin = i * thread_size;
-        threads_arg[i].end = threads_arg[i].begin + thread_size;
+    for (int i = 0; i < n_threads; i++){
+        if (i != n_threads - 1) {   // If not last thread
+            threads_arg[i].begin = i * thread_size;
+            threads_arg[i].end = threads_arg[i].begin + thread_size;
+        } else {                    // Last thread
+            threads_arg[i].begin = i * thread_size;
+            threads_arg[i].end = size;
+        }
         threads_arg[i].size = size;
         threads_arg[i].curr = curr;
         threads_arg[i].next = next;
@@ -83,22 +88,6 @@ int main(int argc, char **argv)
         pthread_create(&threads[i], NULL, play_round, &threads_arg[i]);
     }
 
-    // Create last thread
-    int i = n_threads - 1;
-    threads_arg[i].begin = i * thread_size;
-    threads_arg[i].end = size;
-    threads_arg[i].size = size;
-    threads_arg[i].curr = curr;
-    threads_arg[i].next = next;
-    sem_init(&semaphores[i], 0, 1);
-    threads_arg[i].semaphore =  &semaphores[i];
-    threads_arg[i].threads_finished = &threads_finished;
-    threads_arg[i].threads_finished_lock = &threads_finished_lock;
-    threads_arg[i].sem_round_finished = &sem_round_finished;
-    threads_arg[i].steps = steps;
-    threads_arg[i].n_threads = n_threads;
-
-    pthread_create(&threads[i], NULL, play_round, &threads_arg[i]);
 
     for (int _ = 0; _ < steps; _++)
     {
@@ -109,7 +98,6 @@ int main(int argc, char **argv)
             sem_post(&semaphores[i]);
 
 #ifdef DEBUG
-        printf("Step %d ----------\n", i + 1);
         print_board(next, size);
         print_stats(stats_total);
 #endif

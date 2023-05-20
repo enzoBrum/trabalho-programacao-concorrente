@@ -64,6 +64,24 @@ int adjacent_to(cell_t **board, int size, int i, int j)
     return count;
 }
 
+void finish_thread_round(thread_arguments* arguments) {
+    sem_wait(arguments->threads_finished_lock);
+
+    unsigned int *finished;
+    finished = arguments->threads_finished;
+    *finished += 1;
+    // printf("Finished: %d\n", *finished);
+    // fflush(stdout);
+
+    if ( *finished == arguments->n_threads ) {
+        sem_post(arguments->sem_round_finished);
+
+        *finished = 0;
+    }
+
+    sem_post(arguments->threads_finished_lock);
+}
+
 void *play_round(void *arg) {
     thread_arguments *arguments = (thread_arguments *) arg;
     cell_t **board = arguments->curr;
@@ -76,10 +94,8 @@ void *play_round(void *arg) {
     stats->borns = stats->loneliness = stats->overcrowding = stats->survivals = 0;
     
     for (int s = 0; s < arguments->steps; ++s) {
-        // unsigned long id = pthread_self();
-        // printf("thread %ld esperando semaforo\n", id);
         sem_wait(arguments->semaphore);
-        // printf("thread %ld passou semaforo\n", id);
+
         for (int i = begin; i < end; ++i) {
             for (int j = 0; j < size; j++) {
                 
@@ -130,20 +146,7 @@ void *play_round(void *arg) {
         newboard = board;
         board = tmp;
 
-        unsigned int *finished;
-        sem_wait(arguments->threads_finished_lock);
-        finished = arguments->threads_finished;
-        *finished += 1;
-        // printf("Finished: %d\n", *finished);
-        // fflush(stdout);
-
-        if ( *finished == arguments->n_threads ) {
-            sem_post(arguments->sem_round_finished);
-
-            *finished = 0;
-        }
-        sem_post(arguments->threads_finished_lock);
-
+        finish_thread_round(arguments);
     }
 
     pthread_exit(stats);
