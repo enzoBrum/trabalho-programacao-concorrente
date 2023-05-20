@@ -76,10 +76,10 @@ void *play_round(void *arg) {
     stats->borns = stats->loneliness = stats->overcrowding = stats->survivals = 0;
     
     for (int s = 0; s < arguments->steps; ++s) {
-        // unsigned long id = pthread_self();
-        // printf("thread %ld esperando semaforo\n", id);
+        // Espera a sinalização do começo de um novo round
+        // pela thread principal. Quando isso acontece, o semáforo
+        // de cada thread é incrementado uma vez
         sem_wait(arguments->semaphore);
-        // printf("thread %ld passou semaforo\n", id);
         for (int i = begin; i < end; ++i) {
             for (int j = 0; j < size; j++) {
                 
@@ -126,21 +126,28 @@ void *play_round(void *arg) {
             }
         }
         
+        // faz a troca dos tabuleiros
         cell_t **tmp = newboard;
         newboard = board;
         board = tmp;
 
-        unsigned int *finished;
+        /*
+         - Incrementa o número de threads finalizadas.
+           Caso tal número seja igual à quantidade de threads existentes,
+           realiza um post no semáforo sem_round_finished para sinalizar à thread
+           principal que o round atual acabou.
+         
+         - O mutex threads_finished_lock garante a exclusão mútua
+           em relação ao uso do ponteiro threads_finished, o qual aponta
+           para um número inteiro compartilhado entre todas as threads.
+        */
         sem_wait(arguments->threads_finished_lock);
-        finished = arguments->threads_finished;
-        *finished += 1;
-        // printf("Finished: %d\n", *finished);
-        // fflush(stdout);
+        *arguments->threads_finished = *arguments->threads_finished + 1;
 
-        if ( *finished == arguments->n_threads ) {
+        if ( *arguments->threads_finished == arguments->n_threads ) {
             sem_post(arguments->sem_round_finished);
 
-            *finished = 0;
+            *arguments->threads_finished = 0;
         }
         sem_post(arguments->threads_finished_lock);
 

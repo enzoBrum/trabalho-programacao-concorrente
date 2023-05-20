@@ -20,7 +20,6 @@ int main(int argc, char **argv)
     int size, steps, n_threads;
     cell_t **curr, **next, **tmp;
     FILE *f;
-    // stats_t stats_step = {0, 0, 0, 0};
     stats_t stats_total = {0, 0, 0, 0};
 
     if (argc != 3)
@@ -45,6 +44,7 @@ int main(int argc, char **argv)
 
     curr = allocate_board(size);
     next = allocate_board(size);
+    
     pthread_t threads[n_threads];
     thread_arguments threads_arg[n_threads];
     sem_t semaphores[n_threads];
@@ -63,11 +63,12 @@ int main(int argc, char **argv)
     print_stats(stats_total);
 #endif
     
+    // criação das threads
     unsigned int thread_size = size / n_threads;
     unsigned int threads_finished = 0;
-    for (int i = 0; i < n_threads - 1; i++){
+    for (int i = 0; i < n_threads; i++) {
         threads_arg[i].begin = i * thread_size;
-        threads_arg[i].end = threads_arg[i].begin + thread_size;
+        threads_arg[i].end = (i < n_threads - 1) ? threads_arg[i].begin + thread_size : size; // Ultima thread fica responsavel com o restante das linhas da matriz
         threads_arg[i].size = size;
         threads_arg[i].curr = curr;
         threads_arg[i].next = next;
@@ -83,27 +84,14 @@ int main(int argc, char **argv)
         pthread_create(&threads[i], NULL, play_round, &threads_arg[i]);
     }
 
-    // Create last thread
-    int i = n_threads - 1;
-    threads_arg[i].begin = i * thread_size;
-    threads_arg[i].end = size;
-    threads_arg[i].size = size;
-    threads_arg[i].curr = curr;
-    threads_arg[i].next = next;
-    sem_init(&semaphores[i], 0, 1);
-    threads_arg[i].semaphore =  &semaphores[i];
-    threads_arg[i].threads_finished = &threads_finished;
-    threads_arg[i].threads_finished_lock = &threads_finished_lock;
-    threads_arg[i].sem_round_finished = &sem_round_finished;
-    threads_arg[i].steps = steps;
-    threads_arg[i].n_threads = n_threads;
-
-    pthread_create(&threads[i], NULL, play_round, &threads_arg[i]);
-
     for (int _ = 0; _ < steps; _++)
     {
-        printf("Step %d\n\n", _);
-        
+
+        /*
+        - A thread principal espera até que todas as threads terminem o round atual.
+        - Quando isso acontece, a thread principal incremental o semáforo das outras threads
+          para sinalizar o começo de um novo round
+        */
         sem_wait(&sem_round_finished);
         for ( int i = 0; i < n_threads; ++i )
             sem_post(&semaphores[i]);

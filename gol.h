@@ -26,14 +26,14 @@ typedef struct {
 } stats_t;
 
 typedef struct {
-    unsigned int begin;
-    unsigned int end;
-    unsigned int size;
-    unsigned int steps;
-    unsigned int n_threads;
-    unsigned int *threads_finished;
-    cell_t **curr;
-    cell_t **next;
+    unsigned int begin; // primeira linha da thread;
+    unsigned int end; // ultima linha da thread; 
+    unsigned int size; // tamanho da matrix;
+    unsigned int steps; // numero de steps do jogo;
+    unsigned int n_threads; // Numero de threads criadas, usado para saber se todas as threads do step termitaram n_threads == threads_finished
+    unsigned int *threads_finished; // Numeros de threads que terminaram a step
+    cell_t **curr; // Aponta para o tabuleiro atual
+    cell_t **next; // Aponta para o proximo tabuleiro
     sem_t *semaphore; // Semaforo que sincroniza cada step
     sem_t *sem_round_finished;  // Semaforo que sincroniza quando todas terminam
     sem_t *threads_finished_lock; // Semaforo que sincroniza a condicao de corrida de threads_finished;
