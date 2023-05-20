@@ -68,7 +68,12 @@ int main(int argc, char **argv)
     unsigned int threads_finished = 0;
     for (int i = 0; i < n_threads; i++) {
         threads_arg[i].begin = i * thread_size;
-        threads_arg[i].end = (i < n_threads - 1) ? threads_arg[i].begin + thread_size : size; // Ultima thread fica responsavel com o restante das linhas da matriz
+        
+        if (i < n_threads - 1)
+            threads_arg[i].end = threads_arg[i].begin + thread_size;
+        else
+            threads_arg[i].end = size;
+        
         threads_arg[i].size = size;
         threads_arg[i].curr = curr;
         threads_arg[i].next = next;
